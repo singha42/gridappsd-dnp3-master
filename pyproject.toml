@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "dnp3-master"
+version = "v0.1.0a"
+description = "GridAPPS-D DNP3 Master Service"
+authors = ["A. Singh"]
+packages = [
+    { include = "dnp3-master" }
+]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.8.1,<4.0"
+cim-graph = { git = "https://github.com/PNNL-CIM-Tools/CIM-Graph.git", branch = "feature/68"}
+gridappsd-python = "^2024.8.1a1"
+pydnp3 = "^0.1.0"
+
+
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.27.1"
