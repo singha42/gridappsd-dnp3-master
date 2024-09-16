@@ -472,8 +472,7 @@ class SOEHandler(opendnp3.ISOEHandler):
         conversion = conversion_dict[self._device]
         
         conversion_name_index_dict = {v['index']: v for k, v in conversion['Analog input'].items()}
-        #print(conversion_name_index_dict) 
-        
+
         #-------------------------------------------
         with self.lock:
             if type(values) == opendnp3.ICollectionIndexedAnalog:
@@ -482,8 +481,8 @@ class SOEHandler(opendnp3.ISOEHandler):
                     print(index, "...", value)
                     if not self._dnp3_msg_AI_header:
                         self._dnp3_msg_AI_header = [v['CIM name']+'_'+v['CIM units'] for k, v in conversion['Analog input'].items()]
-                    print(self._name, self._device) 
-                    if 'RTU1' in self._device:
+                    
+                    if self._name in self._device:
                         not_found = True
                         self._dnp3_msg_AI[index]=value
                        
