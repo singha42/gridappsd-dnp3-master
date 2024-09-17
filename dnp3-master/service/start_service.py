@@ -120,6 +120,7 @@ def run_master(device_ip_port_config_all_13bus, names,simulation_id,gapps,dnp3_t
     msg_count=0
     csv_dict = {}
     cim_full_msg = {'simulation_id': simulation_id, 'message':{'timestamp': int(time.time()),'measurements':{}}}
+
     while True:
         current_time = time.time()
         for master in masters:
@@ -161,13 +162,14 @@ if __name__ == "__main__":
 
     #TODO: Change dummy simulation id to field id
     simulation_id='field_data'   
-    gapps = GridAPPSD(username="system", password="manager")
+    gapps = GridAPPSD()
     gapps.connect()
     
     with open(config_path+"/device_ip_port_config.json") as f:
         device_ip_port_config_all_Xcel = json.load(f)
  
-    dnp3_to_cim = CIMMapping(conversion_dict=os.path.join(config_path,"conversion_dict_master.json"), model_line_dict=os.path.join(config_path,"model_line_dict.json"))
+    dnp3_to_cim = CIMMapping(conversion_dict=os.path.join(config_path,"conversion_dict_master_data.json"), model_line_dict=os.path.join(config_path,"measurement_dict_master.json"))
+
     conversion_dict = dnp3_to_cim.conversion_dict
     #print(conversion_dict)
 
