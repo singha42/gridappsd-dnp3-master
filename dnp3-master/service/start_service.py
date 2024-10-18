@@ -50,6 +50,27 @@ from dnp3.points import PointValue
 from gridappsd.topics import simulation_output_topic, simulation_input_topic
 from gridappsd import GridAPPSD, DifferenceBuilder, utils
 
+# from dnp3_python.dnp3station.master import MyMaster
+from dnp3_python.dnp3station.master_new import MyMasterNew
+
+# TODO: clean up the custom logger later
+# Create a logger object
+logger = logging.getLogger('my_logger')
+logger.setLevel(logging.DEBUG)  # Set the minimum logging level
+
+# Create a file handler for outputting logs to a file
+file_handler = logging.FileHandler('/home/shared_user/gridappsd-dnp3-master/dnp3-master/service/myfile.log')
+file_handler.setLevel(logging.INFO)  # Only log error and above messages to the file
+
+# Create a formatter
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+
+# Add handlers to the logger
+logger.addHandler(file_handler)
+
+# TODO: clean up the custom logger later === (END)
+
 myCIMProcessor = None
 
 logging.basicConfig(level=logging.DEBUG)
@@ -72,8 +93,10 @@ def run_master(device_ip_port_config_all_13bus, names,simulation_id,gapps,dnp3_t
         convertion_type=device_ip_port_dict[
             'conversion_type']
         object_name=device_ip_port_dict['CIM object']
+        
+        logger.info(f"{HOST=}")  # TODO: kefei added
      
-        application_1 = MyMaster(HOST=HOST,  # "127.0.0.1
+        application_1: MyMaster = MyMaster(HOST=HOST,  # "127.0.0.1
                                 LOCAL="0.0.0.0",
                                 PORT=int(PORT),
                                 DNP3_ADDR=int(DNP3_ADDR),
@@ -82,11 +105,26 @@ def run_master(device_ip_port_config_all_13bus, names,simulation_id,gapps,dnp3_t
                                 listener=AppChannelListener(),
                                 soe_handler=SOEHandler(object_name, convertion_type, dnp3_to_cim,gapps),
                                 master_application=MasterApplication())
-        application_1.name=name
+        # TODO: kefei comment: (from dnp3.master_pnnl import MyMaster) MyMaster doesn't have def start method. How is it going to start?
+        master_application = MyMasterNew(port=40000)
+        master_application.start()
+    #     master_ip=d_args.get("master_ip="),
+    #     outstation_ip=d_args.get("outstation_ip="),
+    #     port=d_args.get("port="),
+    #     master_id=d_args.get("master_id="),
+    #     outstation_id=d_args.get("outstation_id="),
+
+    #     # channel_log_level=opendnp3.levels.ALL_COMMS,
+    #     # master_log_level=opendnp3.levels.ALL_COMMS
+    #     # soe_handler=SOEHandler(soehandler_log_level=logging.DEBUG)
+    # )
+        # master_application = MyMasterNew()
+        application_1.name=name  # TODO: check if this is valid
         # application.channel.SetLogFilters(openpal.LogFilters(opendnp3.levels.ALL_COMMS))
         _log.debug('Channel log filtering level is now: {0}'.format(opendnp3.levels.ALL_COMMS))
 
-        masters.append(application_1)
+        # masters.append(application_1)
+        masters.append(master_application)
         
     pv_points = []
     for key in conversion_dict:
@@ -124,12 +162,16 @@ def run_master(device_ip_port_config_all_13bus, names,simulation_id,gapps,dnp3_t
     while True:
         current_time = time.time()
         for master in masters:
-            cim_msg = master.soe_handler.get_msg()
+            master.send_scan_all_request()
+            # master_soe_handler: SOEHandler = master.soe_handler
+            # cim_msg = master_soe_handler.get_msg()
+            cim_msg = master.soe_handler.db
+            # cim_msg = master.master_application.get_config()
             cim_full_msg['message']['measurements'].update(cim_msg)
             cim_full_msg['message']['timestamp'] = str(int(current_time))
             _log.debug(f'Publishing CIM measurement: {json.dumps(cim_full_msg)}')
             gapps.send('/topic/goss.gridappsd.field.output', json.dumps(cim_full_msg))
-        
+        logger.info(f"{cim_msg=}")  # TODO: kefei added
         msg_count+=1
         time.sleep(2)
 
