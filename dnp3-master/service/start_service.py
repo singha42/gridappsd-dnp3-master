@@ -39,6 +39,7 @@ import platform
 import numpy as np
 import yaml
 import logging
+import gridappsd.topics as topics
 
 from dnp3.CIMPro_AIAO_BIBO import CIMProcessor
 
@@ -146,7 +147,8 @@ def run_master(device_ip_port_config_all_13bus, names,simulation_id,gapps,dnp3_t
   
     myCIMProcessor = CIMProcessor(pv_points,application_1)  
         
-    gapps.subscribe('/topic/goss.gridappsd.field.input', on_message)
+    # gapps.subscribe('/topic/goss.gridappsd.field.input', on_message)
+    gapps.subscribe(topics.field_input_topic(), on_message)
 
     SLEEP_SECONDS = 1
     time.sleep(SLEEP_SECONDS)
@@ -157,21 +159,98 @@ def run_master(device_ip_port_config_all_13bus, names,simulation_id,gapps,dnp3_t
 
     msg_count=0
     csv_dict = {}
-    cim_full_msg = {'simulation_id': simulation_id, 'message':{'timestamp': int(time.time()),'measurements':{}}}
+    cim_full_msg = {'message':{'timestamp': int(time.time()),'measurements':{}}}
+    
 
+
+
+
+    # while True:
+    #     current_time = time.time()
+    #     for master in masters:
+    #         master.send_scan_all_request()
+    #         # master_soe_handler: SOEHandler = master.soe_handler
+    #         # cim_msg = master_soe_handler.get_msg()
+    #         cim_msg = master.soe_handler.db  # TODO: note this is place where cim_msg should be formatted
+    #         # cim_msg = master.master_application.get_config()
+    #         cim_full_msg['message']['measurements'].update(cim_msg)
+    #         cim_full_msg['message']['timestamp'] = str(int(current_time))
+    #         _log.debug(f'Publishing CIM measurement: {json.dumps(cim_full_msg)}')
+    #         # gapps.send('/topic/goss.gridappsd.field.output', json.dumps(cim_full_msg))
+    #         gapps.send(topics.field_output_topic(), json.dumps(cim_full_msg))
+    #     logger.info(f"{cim_full_msg=}")  # TODO: kefei added
+    #     msg_count+=1
+    #     time.sleep(2)
+    
+    # """ # example message: https://gridappsd.readthedocs.io/en/master/using_gridappsd/index.html?highlight=cim#subscribe-to-simulation-output
+    {
+        "simulation_id" : "12ae2345",
+        "message" : {
+            "timestamp" : "1357048800",
+            "measurements" : {
+                "123a456b-789c-012d-345e-678f901a234b":{
+                                    "measurement_mrid" : "123a456b-789c-012d-345e-678f901a234b",
+                                    "value": 1
+                                    # "magnitude" : 3410.456,
+                                    # "angle" : -123.456
+                                    }
+                            }
+                    }
+    }
+
+
+    # in /home/shared_user/gridappsd-dnp3-master/dnp3-master/service/config/new_measurement_dict_master.json
+    new_measurement_dict_master = {
+        "ufls_59.1": {
+            "Pos": {
+                "ABC": [
+                {
+                    "mrid": "1d88371e-3db5-4b23-b8cd-fc0f2f3569fb",
+                    "type": "value"
+                }
+                ]
+            }
+        },
+        "ufls_59.5": {
+            "Pos": {
+                "ABC": [
+                {
+                    "mrid": "a9eb2b35-c340-4d31-9a0a-4ff2d4463361",
+                    "type": "value"
+                }
+            ]
+        }
+        }
+        }
+    
+    def register_mapping(register_name: str, db_data):
+        """# mapping based on register name, e.g., ufls_59.1" -> "BinaryOutputStatus"[0]"""
+        if register_name == "ufls_59.1":
+            return db_data["BinaryOutputStatus"][0]
+        else:
+            return db_data["BinaryOutputStatus"][1]
+    
     while True:
         current_time = time.time()
-        for master in masters:
-            master.send_scan_all_request()
+        for k, v in new_measurement_dict_master.items():
+            master_application.send_scan_all_request()
             # master_soe_handler: SOEHandler = master.soe_handler
             # cim_msg = master_soe_handler.get_msg()
-            cim_msg = master.soe_handler.db
-            # cim_msg = master.master_application.get_config()
-            cim_full_msg['message']['measurements'].update(cim_msg)
+            db_data = master_application.soe_handler.db
+            mr_id = v["Pos"]["ABC"][0]["mrid"]
+            value = register_mapping(k, db_data)
+            value=1 if value else 0 # convert to 1 or 0 (originally True or False)
             cim_full_msg['message']['timestamp'] = str(int(current_time))
-            _log.debug(f'Publishing CIM measurement: {json.dumps(cim_full_msg)}')
-            gapps.send('/topic/goss.gridappsd.field.output', json.dumps(cim_full_msg))
-        logger.info(f"{cim_msg=}")  # TODO: kefei added
+            cim_full_msg['message']['measurements'] = {
+                mr_id:{
+                        "measurement_mrid" : mr_id,
+                        "value": value
+                        }}
+            _log.debug(f'Publishing CIM measurement XXXX: {json.dumps(cim_full_msg)}')
+            # _log.debug(f"{master_application.soe_handler.db=}")
+            # gapps.send('/topic/goss.gridappsd.field.output', json.dumps(cim_full_msg))
+            gapps.send(topics.field_output_topic(), json.dumps(cim_full_msg))
+        # logger.info(f"{cim_full_msg=}")  # TODO: kefei added
         msg_count+=1
         time.sleep(2)
 
