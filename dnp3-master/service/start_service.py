@@ -283,6 +283,7 @@ if __name__ == "__main__":
 
     #TODO: Change dummy simulation id to field id
     simulation_id='field_data'   
+    # gapps = GridAPPSD(stomp_address="10.15.223.157", stomp_port=61613)
     gapps = GridAPPSD()
     gapps.connect()
     
