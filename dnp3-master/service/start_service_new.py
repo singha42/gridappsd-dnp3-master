@@ -173,32 +173,44 @@ logging.basicConfig(level=logging.DEBUG)
 _log = logging.getLogger(__name__)
 
 
-def on_message_control_outstation_binaryOutput(
-    headers, message: dict[str, dict[str, bool]]
-):
+def on_message_control_outstation_binaryOutput(headers, message):
     """
     A callback function when the receiving message from a subscribed topic.
-    message: dict[str, dict[str, bool]], {RTU-id: {register-id: True/False}},
-    e.g., {"RTU1": {"ufls_59.1": True}}
+    message: a cim-difference message
     """
     _log.debug(f"{headers = }")
     _log.debug(f"{message = }")
+    timestamp = message["input"]["message"]["timestamp"]  # 1357048800
+    forward_differences = message[
+        "input"
+    ][
+        "message"
+    ][
+        "forward_differences"
+    ]  # [{'object': '61A547FB-9F68-5635-BB4C-F7F537FD824E', 'attribute': 'ShuntCompensator.sections', 'value': 0}, {'object': 'E3CA4CD4-B0D4-9A83-3E2F-18AC5F1B55BA', 'attribute': 'ShuntCompensator.sections', 'value': 1}]
+
     register_to_db_index: dict[str, int] = {
-        "ufls_59.1": 0,
-        "ufls_59.5": 1,
-    }  # TODO: confirm whether to take ufls-id (e.g., ufls_59.1) or measurement_mrid (e.g., 123a456b-789c-012d-345e-678f901a234b), or else.
-    for rtu, commands in message.items():
+        "61A547FB-9F68-5635-BB4C-F7F537FD824E": 0,
+        "E3CA4CD4-B0D4-9A83-3E2F-18AC5F1B55BA": 1,
+    }  # TODO: confirm what should be the correct mrid(s).
+    rtu = outstation_names[
+        0
+    ]  # TODO: assume only one RTU device for now (not sure if will demo multiple devcies)
+    for command in forward_differences:
         master_app: MyMasterNew = master_apps[rtu]
-        for register_id, command in commands.items():
-            pass
-            master_app.send_direct_point_command(
-                group=10,
-                variation=2,
-                index=register_to_db_index[register_id],
-                val_to_set=command,
-            )  # Note: group10Variation2 is for BinaryOutput, hardcoded here for demo purposes
-            # result = master_application.get_db_by_group_variation(group=10, variation=2)
-            # print("SUCCESS", {"BinaryOutputStatus": list(result.values())[0]})
+        mrid = command["object"]  # aka object
+        index = register_to_db_index[mrid]
+        val_to_set = (
+            True if command["value"] == 1 else False
+        )  # TODO: Make sure if 1 -> True, 0 -> False
+        master_app.send_direct_point_command(
+            group=10,
+            variation=2,
+            index=index,
+            val_to_set=val_to_set,
+        )  # Note: group10Variation2 is for BinaryOutput, hardcoded here for demo purposes
+        # result = master_application.get_db_by_group_variation(group=10, variation=2)
+        # print("SUCCESS", {"BinaryOutputStatus": list(result.values())[0]})
 
 
 def _register_mapping(register_name: str, db_data):
@@ -296,6 +308,7 @@ def run_master():
             # Send scan request and process data
             master_app.send_scan_all_request()
             db_data = master_app.soe_handler.db
+            _log.debug(f"{db_data =}")
 
             try:
                 cim_full_msg = _construct_cim_full_msg(db_data)
