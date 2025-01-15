@@ -52,7 +52,11 @@ from dnp3.points import PointValue
 # from dnp3_python.dnp3station.master import MyMaster
 from dnp3_python.dnp3station.master_new import MyMasterNew
 from gridappsd import DifferenceBuilder, GridAPPSD, utils
-from gridappsd.topics import simulation_input_topic, simulation_output_topic
+from gridappsd.topics import (
+    field_input_topic,
+    simulation_input_topic,
+    simulation_output_topic,
+)
 from pydnp3 import opendnp3, openpal
 
 # Setup argparse
@@ -169,11 +173,32 @@ logging.basicConfig(level=logging.DEBUG)
 _log = logging.getLogger(__name__)
 
 
-def on_message(headers, message):
+def on_message_control_outstation_binaryOutput(
+    headers, message: dict[str, dict[str, bool]]
+):
     """
     A callback function when the receiving message from a subscribed topic.
+    message: dict[str, dict[str, bool]], {RTU-id: {register-id: True/False}},
+    e.g., {"RTU1": {"ufls_59.1": True}}
     """
-    myCIMProcessor.process(message)
+    _log.debug(f"{headers = }")
+    _log.debug(f"{message = }")
+    register_to_db_index: dict[str, int] = {
+        "ufls_59.1": 0,
+        "ufls_59.5": 1,
+    }  # TODO: confirm whether to take ufls-id (e.g., ufls_59.1) or measurement_mrid (e.g., 123a456b-789c-012d-345e-678f901a234b), or else.
+    for rtu, commands in message.items():
+        master_app: MyMasterNew = master_apps[rtu]
+        for register_id, command in commands.items():
+            pass
+            master_app.send_direct_point_command(
+                group=10,
+                variation=2,
+                index=register_to_db_index[register_id],
+                val_to_set=command,
+            )  # Note: group10Variation2 is for BinaryOutput, hardcoded here for demo purposes
+            # result = master_application.get_db_by_group_variation(group=10, variation=2)
+            # print("SUCCESS", {"BinaryOutputStatus": list(result.values())[0]})
 
 
 def _register_mapping(register_name: str, db_data):
@@ -240,6 +265,9 @@ def run_master():
     # init master station(s)
     config_path = args.config_path
     _log.debug(f"{config_path = }")
+    # Note: in current design master_apps is a collection of master applications.
+    # Make it global accessible to use in gridapps-d on_message callback workflow
+    global master_apps
     master_apps = {}
     for outstaion_name in outstation_names:
         config: RTUConfig = RTUConfig.load_json_config(
@@ -254,6 +282,12 @@ def run_master():
         )
         master_app.start()
         master_apps[outstaion_name] = master_app
+
+    # subscribe to gridapps-d topic to receive control command
+    topic = field_input_topic()  # topic = '/topic/goss.gridappsd.field.input'
+    gapps.subscribe(
+        topic, on_message_control_outstation_binaryOutput
+    )  # TODO: confirm what topic to use
 
     # loop to poll data from outstation, construct a cim-message and send it
     msg_count = 0
@@ -273,29 +307,30 @@ def run_master():
             # _log.info(f"Sending CIM message: {cim_full_msg}")
             gapps.send(
                 topics.field_output_topic(), json.dumps(cim_full_msg)
-            )  # TODO: confirm what the topic to use
+            )  # TODO: confirm what topic to use
 
         msg_count += 1
-        time.sleep(2)  # Wait for 2 seconds before the next cycle
+        time.sleep(
+            5
+        )  # Wait for 2 seconds before the next cycle (to poll data from outstation)
 
 
 if __name__ == "__main__":
-    # TODO: Change dummy simulation id to field id
-    # simulation_id = "field_data"
+    # simulation_id = "field_data"  # TODO: Confirm what simulation_id is for. Change dummy simulation id to field id (if it is needed)
     # gapps = GridAPPSD(stomp_address="10.15.223.157", stomp_port=61613)
     gapps = GridAPPSD()
     gapps.connect()
 
-    with open(config_path + "/device_ip_port_config.json") as f:
-        device_ip_port_config_all_Xcel = json.load(f)
+    # with open(config_path + "/device_ip_port_config.json") as f:
+    #     device_ip_port_config_all_Xcel = json.load(f)
 
-    dnp3_to_cim = CIMMapping(
-        conversion_dict=os.path.join(config_path, "conversion_dict_master_data.json"),
-        model_line_dict=os.path.join(config_path, "measurement_dict_master.json"),
-    )
+    # dnp3_to_cim = CIMMapping(
+    #     conversion_dict=os.path.join(config_path, "conversion_dict_master_data.json"),
+    #     model_line_dict=os.path.join(config_path, "measurement_dict_master.json"),
+    # )
 
-    conversion_dict = dnp3_to_cim.conversion_dict
-    # print(conversion_dict)
+    # conversion_dict = dnp3_to_cim.conversion_dict
+    # # print(conversion_dict)
 
     time.sleep(1)
 
