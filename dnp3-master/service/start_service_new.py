@@ -188,17 +188,21 @@ def on_message_control_outstation_binaryOutput(headers, message):
     ][
         "forward_differences"
     ]  # [{'object': '61A547FB-9F68-5635-BB4C-F7F537FD824E', 'attribute': 'ShuntCompensator.sections', 'value': 0}, {'object': 'E3CA4CD4-B0D4-9A83-3E2F-18AC5F1B55BA', 'attribute': 'ShuntCompensator.sections', 'value': 1}]
+    _log.debug(f"{timestamp = }")
+    _log.debug(f"{forward_differences = }")
 
-    register_to_db_index: dict[str, int] = {
-        "61A547FB-9F68-5635-BB4C-F7F537FD824E": 0,
-        "E3CA4CD4-B0D4-9A83-3E2F-18AC5F1B55BA": 1,
-    }  # TODO: confirm what should be the correct mrid(s).
+    # register_to_db_index: dict[str, int] = {
+    #     "61A547FB-9F68-5635-BB4C-F7F537FD824E": 0,
+    #     "E3CA4CD4-B0D4-9A83-3E2F-18AC5F1B55BA": 1,
+    # }  # TODO: confirm what should be the correct mrid(s).
+    with open(os.path.join(config_path, "mrid_object_outstation_index_dict.json")) as f:
+        register_to_db_index = json.load(f)
     rtu = outstation_names[
         0
     ]  # TODO: assume only one RTU device for now (not sure if will demo multiple devcies)
     for command in forward_differences:
         master_app: MyMasterNew = master_apps[rtu]
-        mrid = command["object"]  # aka object
+        mrid = command["object"]  # aka object in the cim-difference-message
         index = register_to_db_index[mrid]
         val_to_set = (
             True if command["value"] == 1 else False
