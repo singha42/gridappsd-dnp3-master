@@ -303,13 +303,13 @@ def run_master():
     topic = field_input_topic()  # topic = '/topic/goss.gridappsd.field.input'
     gapps.subscribe(
         topic, on_message_control_outstation_binaryOutput
-    )  # TODO: confirm what topic to use
-
+    ) 
     # loop to poll data from outstation, construct a cim-message and send it
     msg_count = 0
     while True:
         for outstation_name, master_app in master_apps.items():
             # Send scan request and process data
+            time.sleep(100)  # TODO: clean this. 
             master_app.send_scan_all_request()
             db_data = master_app.soe_handler.db
             _log.debug(f"{db_data =}")
@@ -324,8 +324,7 @@ def run_master():
             # _log.info(f"Sending CIM message: {cim_full_msg}")
             gapps.send(
                 topics.field_output_topic(), json.dumps(cim_full_msg)
-            )  # TODO: confirm what topic to use
-
+            )
         msg_count += 1
         time.sleep(
             5
