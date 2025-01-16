@@ -205,8 +205,8 @@ def on_message_control_outstation_binaryOutput(headers, message):
         mrid = command["object"]  # aka object in the cim-difference-message
         index = register_to_db_index[mrid]
         val_to_set = (
-            True if command["value"] == 1 else False
-        )  # TODO: Make sure if 1 -> True, 0 -> False
+            True if command["value"] == True else False
+        )  # TODO: Make sure if True (Enable) -> True, False (Disable) -> False. It is possible gridapps-d has different interpretation of True/Enable vs. dnp3
         master_app.send_direct_point_command(
             group=10,
             variation=2,
