@@ -53,7 +53,7 @@ from dnp3.points import PointValue
 from dnp3_python.dnp3station.master_new import MyMasterNew
 from gridappsd import DifferenceBuilder, GridAPPSD, utils
 from gridappsd.topics import (
-    field_input_topic,
+    field_input_topic,field_output_topic,
     simulation_input_topic,
     simulation_output_topic,
 )
@@ -195,15 +195,15 @@ def on_message_control_outstation_binaryOutput(headers, message):
     #     "61A547FB-9F68-5635-BB4C-F7F537FD824E": 0,
     #     "E3CA4CD4-B0D4-9A83-3E2F-18AC5F1B55BA": 1,
     # }  # TODO: confirm what should be the correct mrid(s).
-    with open(os.path.join(config_path, "mrid_object_outstation_index_dict.json")) as f:
-        register_to_db_index = json.load(f)
+    with open(os.path.join(config_path, "mrid_object_outstation_index_dict_receive.json")) as f:
+        register_to_db_index_receive = json.load(f)
     rtu = outstation_names[
         0
     ]  # TODO: assume only one RTU device for now (not sure if will demo multiple devcies)
     for command in forward_differences:
         master_app: MyMasterNew = master_apps[rtu]
         mrid = command["object"]  # aka object in the cim-difference-message
-        index = register_to_db_index[mrid]
+        index = register_to_db_index_receive[mrid]
         val_to_set = (
             True if command["value"] == True else False
         )  # TODO: Make sure if True (Enable) -> True, False (Disable) -> False. It is possible gridapps-d has different interpretation of True/Enable vs. dnp3
@@ -217,12 +217,12 @@ def on_message_control_outstation_binaryOutput(headers, message):
         # print("SUCCESS", {"BinaryOutputStatus": list(result.values())[0]})
 
 
-def _register_mapping(register_name: str, db_data):
-    """# mapping based on register name, e.g., ufls_59.1" -> "BinaryOutputStatus"[0]"""
-    if register_name == "ufls_59.1":
-        return db_data["BinaryOutputStatus"][0]
-    else:
-        return db_data["BinaryOutputStatus"][1]
+# def _register_mapping(register_name: str, db_data):
+#     """# mapping based on register name, e.g., ufls_59.1" -> "BinaryOutputStatus"[0]"""
+#     if register_name == "ufls_59.1":
+#         return db_data["BinaryOutputStatus"][0]
+#     else:
+#         return db_data["BinaryOutputStatus"][1]
 
 
 def _construct_cim_full_msg(
@@ -258,13 +258,16 @@ def _construct_cim_full_msg(
     # config_path = "path_to_config"  # Define or import the configuration path.
     with open(os.path.join(config_path, "new_measurement_dict_master.json")) as f:
         new_measurement_dict_master = json.load(f)
+        
+    with open(os.path.join(config_path, "mrid_object_outstation_index_dict_send.json")) as f:
+        register_to_db_index_send = json.load(f)
 
     # Populate the CIM message with the latest measurements.
     for key, value in new_measurement_dict_master.items():
         mr_id = value["Pos"]["ABC"][0]["mrid"]
         # Assuming _register_mapping and db_data are defined elsewhere
         value = (
-            True if _register_mapping(key, db_data) else False
+            True if db_data["BinaryOutputStatus"][register_to_db_index_send[mrid]] else False
         )  # Note: db_data can be None
         current_time = int(time.time())
         cim_full_msg["message"]["timestamp"] = str(current_time)
@@ -309,7 +312,7 @@ def run_master():
     while True:
         for outstation_name, master_app in master_apps.items():
             # Send scan request and process data
-            time.sleep(100)  # TODO: clean this. 
+            # time.sleep(100)  # TODO: clean this. 
             master_app.send_scan_all_request()
             db_data = master_app.soe_handler.db
             _log.debug(f"{db_data =}")
