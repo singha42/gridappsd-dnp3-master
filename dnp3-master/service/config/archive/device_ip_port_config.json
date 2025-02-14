@@ -1,0 +1,12 @@
+{
+  "RTU1": {
+    "name": "RTU1",
+    "conversion_type": "RTU1",
+    "CIM object": "l50",
+    "port": "20001",
+    "outstation_ip": "172.16.104.240",
+    "desc": "RTU1",
+    "link_local_addr": 13,
+    "link_remote_addr": 17
+  }
+}
