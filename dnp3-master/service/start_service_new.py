@@ -278,13 +278,16 @@ def _construct_cim_full_msg(
             _log.warning(f"Poll status failed. {e = }, {index = }, {db_data['Binary'] = }")
             polled_status = None
         value = (
-            True if polled_status==1 else False
+            True if polled_status==True else False
         )  # Note: db_data can be None
         current_time = time.time()
         cim_full_msg["message"]["timestamp"] = str(current_time)
-        cim_full_msg["message"]["measurements"] = {
-            mr_id: {"measurement_mrid": mr_id, "value": value}
-        }
+        if not cim_full_msg["message"].get("measurements"):
+            cim_full_msg["message"]["measurements"] = []
+        cim_full_msg["message"]["measurements"] += [{
+                mr_id: {"measurement_mrid": mr_id, "value": value}
+            }]
+            
         # Log the prepared message
         # _log.debug(f"==== Publishing CIM measurement XXXX: {json.dumps(cim_full_msg)}")
 

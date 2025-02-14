@@ -12,7 +12,7 @@ _log = logging.getLogger(__name__)
 def main():
     # gapps = GridAPPSD()
     gapps = GridAPPSD(stomp_address="54.245.16.81", stomp_port=61616)
-    gapps.connect()
+    # gapps.connect()  # Note: need to disable this
 
     assert gapps.connected
 
