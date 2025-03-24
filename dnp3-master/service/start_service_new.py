@@ -181,6 +181,7 @@ def on_message_control_outstation_binaryOutput(headers, message):
     # _log.debug(f"{headers = }")
     # _log.debug(f"{message = }")
     _log.info(f"==== on_message triggered. {headers = }, {message = }")
+    print(f"==== CIM difference received. {headers = }, {message = }")
     timestamp = message["input"]["message"]["timestamp"]  # 1357048800
     forward_differences = message[
         "input"
@@ -245,20 +246,25 @@ def _construct_cim_full_msg(
         dict: A dictionary containing the CIM message structured with measurements.
     Example message:
     {
-        "simulation_id" : "12ae2345",
-        "message" : {
-            "timestamp" : "1357048800",
-            "measurements" : {
-                "123a456b-789c-012d-345e-678f901a234b":{
-                                    "measurement_mrid" : "123a456b-789c-012d-345e-678f901a234b",
-                                    "value": True  # enable is True, disable is False
-                                    # "magnitude" : 3410.456,
-                                    # "angle" : -123.456
-                                    }
-                            }
-                    }
+    "simulation_id" : "12ae2345",
+        {
+    "message": {
+        "timestamp": "1742248985.983225",
+        "measurements": {
+            "1d88371e-3db5-4b23-b8cd-fc0f2f3569fb": {
+                "measurement_mrid": "1d88371e-3db5-4b23-b8cd-fc0f2f3569fb",
+                "value": False,
+            },
+            "a9eb2b35-c340-4d31-9a0a-4ff2d4463361": {
+                "measurement_mrid": "a9eb2b35-c340-4d31-9a0a-4ff2d4463361",
+                "value": True,
+                    },
+                },
+            }
+        }
     }
     """
+    
     if cim_full_msg is None:
         cim_full_msg = {"message": {}}
 
@@ -280,13 +286,14 @@ def _construct_cim_full_msg(
         value = (
             True if polled_status==True else False
         )  # Note: db_data can be None
-        current_time = time.time()
-        cim_full_msg["message"]["timestamp"] = str(current_time)
+        current_time = str(int(time.time()))
+        cim_full_msg["message"]["timestamp"] = current_time
         if not cim_full_msg["message"].get("measurements"):
-            cim_full_msg["message"]["measurements"] = []
-        cim_full_msg["message"]["measurements"] += [{
+            cim_full_msg["message"]["measurements"] = {}
+        measurements_content = {
                 mr_id: {"measurement_mrid": mr_id, "value": value}
-            }]
+            }
+        cim_full_msg["message"]["measurements"].update(measurements_content)
             
         # Log the prepared message
         # _log.debug(f"==== Publishing CIM measurement XXXX: {json.dumps(cim_full_msg)}")
@@ -316,7 +323,7 @@ def run_master():
         master_apps[outstaion_name] = master_app
 
     # subscribe to gridapps-d topic to receive control command
-    topic = field_input_topic()  # topic = '/topic/goss.gridappsd.field.input'
+    topic = field_input_topic()
     gapps.subscribe(
         topic, on_message_control_outstation_binaryOutput
     ) 
@@ -333,13 +340,14 @@ def run_master():
             cim_full_msg = _construct_cim_full_msg(db_data)
 
             # Sending the cim-message
-            _log.info(f"==== Sending CIM message: {cim_full_msg}")
+            topic = '/topic/goss.gridappsd.field.dnp3'
+            _log.info(f"==== Sending to {topic = }, {cim_full_msg = }")
             gapps.send(
-                topics.field_output_topic(), json.dumps(cim_full_msg)
+                topic, json.dumps(cim_full_msg)
             )
         msg_count += 1
         time.sleep(
-            5
+           30
         )  # Wait for several seconds before the next cycle (to poll data from outstation)
 
 
