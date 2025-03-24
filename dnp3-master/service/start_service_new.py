@@ -199,12 +199,19 @@ def on_message_control_outstation_binaryOutput(headers, message):
     # }  # TODO: confirm what should be the correct mrid(s).
     with open(os.path.join(config_path, "mrid_object_outstation_index_dict_receive.json")) as f:
         register_to_db_index_receive = json.load(f)
+    # Note: filtered index 100, 101
+    register_to_db_index_receive_updated = {k:v for (k,v) in 
+                                            register_to_db_index_receive.items() if v in [100, 101]}
+    register_to_db_index_receive = register_to_db_index_receive_updated
     rtu: str = outstation_names[
         0
     ]  # TODO: assume only one RTU device for now (not sure if will demo multiple devcies)
     for command in forward_differences:
         master_app: MyMasterNew = master_apps[rtu]
         mrid = command["object"]  # aka object in the cim-difference-message
+        if mrid not in register_to_db_index_receive.keys(): # Note: if not in mrid, ignore
+            next
+        # print(f"!!!!!!!!!!{mrid= }, {register_to_db_index_receive_updated = }")
         index = register_to_db_index_receive[mrid]
         val_to_set = (
             True if command["value"] == True else False
@@ -272,6 +279,9 @@ def _construct_cim_full_msg(
         
     with open(os.path.join(config_path, "mrid_object_outstation_index_dict_send.json")) as f:
         register_to_db_index_send = json.load(f)
+    register_to_db_index_send_updated = {k:v for (k,v) in 
+                                            register_to_db_index_send.items() if v in [100, 101]}
+    register_to_db_index_send = register_to_db_index_send_updated    
 
     # Populate the CIM message with the latest measurements.
     for k, v in register_to_db_index_send.items():
