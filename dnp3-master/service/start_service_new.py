@@ -31,33 +31,19 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import logging
 import os
-import platform
-import sys
 import time
 from dataclasses import dataclass
 
-import gridappsd.topics as topics
-import numpy as np
-import yaml
-from dnp3.CIMPro_AIAO_BIBO import CIMProcessor
-
-# from dnp3.master_pnnl import MyMaster, MyLogger, AppChannelListener, SOEHandler, MasterApplication
-from dnp3.dnp3_to_cim import CIMMapping
-from dnp3.points import PointValue
 
 # from dnp3_python.dnp3station.master import MyMaster
 from dnp3_python.dnp3station.master_new import MyMasterNew
-from gridappsd import DifferenceBuilder, GridAPPSD, utils
-from gridappsd.topics import (
-    field_input_topic,field_output_topic,
-    simulation_input_topic,
-    simulation_output_topic,
-)
-from pydnp3 import opendnp3, openpal
+from gridappsd import GridAPPSD
+from gridappsd.topics import field_input_topic
+from pydnp3 import opendnp3
+
 
 # Setup argparse
 parser = argparse.ArgumentParser()
@@ -118,12 +104,6 @@ class RTUConfig:
         :param rtu_key: Key of the RTU entry to be loaded from the JSON file.
         :return: An instance of RTUConfig initialized with data from the JSON file.
 
-        # Example usage: Assuming the JSON file is located at 'config.json'
-        # and the desired RTU key is 'RTU1'
-        rtu_config = RTUConfig.load_json_config('config.json', 'RTU1')
-        if rtu_config:
-            print(rtu_config)
-
         Example config file:
         {
             "RTU1": {
@@ -178,67 +158,39 @@ def on_message_control_outstation_binaryOutput(headers, message):
     A callback function when the receiving message from a subscribed topic.
     message: a cim-difference message
     """
-    # _log.debug(f"{headers = }")
-    # _log.debug(f"{message = }")
     _log.info(f"==== on_message triggered. {headers = }, {message = }")
-    print(f"==== CIM difference received. {headers = }, {message = }")
-    timestamp = message["input"]["message"]["timestamp"]  # 1357048800
-    forward_differences = message[
-        "input"
-    ][
-        "message"
-    ][
-        "forward_differences"
-    ]  # [{'object': '61A547FB-9F68-5635-BB4C-F7F537FD824E', 'attribute': 'ShuntCompensator.sections', 'value': 0}, {'object': 'E3CA4CD4-B0D4-9A83-3E2F-18AC5F1B55BA', 'attribute': 'ShuntCompensator.sections', 'value': 1}]
-    # _log.debug(f"{timestamp = }")
-    # _log.debug(f"{forward_differences = }")
-
-    # register_to_db_index: dict[str, int] = {
-    #     "61A547FB-9F68-5635-BB4C-F7F537FD824E": 0,
-    #     "E3CA4CD4-B0D4-9A83-3E2F-18AC5F1B55BA": 1,
-    # }  # TODO: confirm what should be the correct mrid(s).
-    with open(os.path.join(config_path, "mrid_object_outstation_index_dict_receive.json")) as f:
+    forward_differences = message["input"]["message"]["forward_differences"]
+    with open(
+        os.path.join(config_path, "mrid_object_outstation_index_dict_receive.json")
+    ) as f:
         register_to_db_index_receive = json.load(f)
     # Note: filtered index 100, 101
-    register_to_db_index_receive_updated = {k:v for (k,v) in 
-                                            register_to_db_index_receive.items() if v in [100, 101]}
+    register_to_db_index_receive_updated = {
+        k: v for (k, v) in register_to_db_index_receive.items() if v in [100, 101]
+    }
     register_to_db_index_receive = register_to_db_index_receive_updated
-    rtu: str = outstation_names[
-        0
-    ]  # TODO: assume only one RTU device for now (not sure if will demo multiple devcies)
+    rtu: str = outstation_names[0]  # Note: assume only one RTU device.
     for command in forward_differences:
         master_app: MyMasterNew = master_apps[rtu]
-        mrid = command["object"]  # aka object in the cim-difference-message
-        if mrid not in register_to_db_index_receive.keys(): # Note: if not in mrid, ignore
-            next
-        # print(f"!!!!!!!!!!{mrid= }, {register_to_db_index_receive_updated = }")
+        mrid = command["object"]
+        if (
+            mrid not in register_to_db_index_receive.keys()
+        ):  # Note: if not in mrid, skip
+            continue
+        val_to_set = True if command["value"] == True else False
         index = register_to_db_index_receive[mrid]
-        val_to_set = (
-            True if command["value"] == True else False
-        )  # TODO: Make sure if True (Enable) -> True, False (Disable) -> False. It is possible gridapps-d has different interpretation of True/Enable vs. dnp3
-        # master_app.send_direct_point_command(
-        #     group=10,
-        #     variation=2,
-        #     index=index,
-        #     val_to_set=val_to_set,
-        # )  # Note: group10Variation2 is for BinaryOutput, hardcoded here for demo purposes
+
         if val_to_set:
-            control_state = opendnp3.ControlCode.LATCH_ON            
+            control_state = opendnp3.ControlCode.LATCH_ON
         else:
-            control_state = opendnp3.ControlCode.LATCH_OFF                                            
-        master_app.send_direct_operate_command(opendnp3.ControlRelayOutputBlock(control_state),
-                                                     index,)
-        _log.info(f"==== Executed send_direct_operate_command, {control_state = }, {index = }")
-        # result = master_application.get_db_by_group_variation(group=10, variation=2)
-        # print("SUCCESS", {"BinaryOutputStatus": list(result.values())[0]})
-
-
-# def _register_mapping(register_name: str, db_data):
-#     """# mapping based on register name, e.g., ufls_59.1" -> "BinaryOutputStatus"[0]"""
-#     if register_name == "ufls_59.1":
-#         return db_data["BinaryOutputStatus"][0]
-#     else:
-#         return db_data["BinaryOutputStatus"][1]
+            control_state = opendnp3.ControlCode.LATCH_OFF
+        master_app.send_direct_operate_command(
+            opendnp3.ControlRelayOutputBlock(control_state),
+            index,
+        )
+        _log.info(
+            f"==== Executed send_direct_operate_command, {control_state = }, {index = }"
+        )
 
 
 def _construct_cim_full_msg(
@@ -271,42 +223,41 @@ def _construct_cim_full_msg(
         }
     }
     """
-    
+
     if cim_full_msg is None:
         cim_full_msg = {"message": {}}
 
     # Load measurement definitions from a JSON file.
-        
-    with open(os.path.join(config_path, "mrid_object_outstation_index_dict_send.json")) as f:
+    with open(
+        os.path.join(config_path, "mrid_object_outstation_index_dict_send.json")
+    ) as f:
         register_to_db_index_send = json.load(f)
-    register_to_db_index_send_updated = {k:v for (k,v) in 
-                                            register_to_db_index_send.items() if v in [100, 101]}
-    register_to_db_index_send = register_to_db_index_send_updated    
+    register_to_db_index_send_updated = {
+        k: v for (k, v) in register_to_db_index_send.items() if v in [100, 101]
+    }
+    register_to_db_index_send = register_to_db_index_send_updated
 
     # Populate the CIM message with the latest measurements.
     for k, v in register_to_db_index_send.items():
         mr_id = k
         index = v
-        # Note:!!!! For this project, always read state from Binary (rather than BinaryOutputStatus)
+        # Note: For this project, always read state from Binary (rather than BinaryOutputStatus), only take index in [100, 101]
+        if index not in db_data["Binary"].keys():
+            continue
         try:
             polled_status: int = db_data["Binary"][index]
         except Exception as e:
-            _log.warning(f"Poll status failed. {e = }, {index = }, {db_data['Binary'] = }")
+            _log.warning(
+                f"Poll status failed. {e = }, {index = }, {db_data['Binary'] = }"
+            )
             polled_status = None
-        value = (
-            True if polled_status==True else False
-        )  # Note: db_data can be None
+        value = True if polled_status == True else False  # Note: db_data can be None
         current_time = str(int(time.time()))
         cim_full_msg["message"]["timestamp"] = current_time
         if not cim_full_msg["message"].get("measurements"):
             cim_full_msg["message"]["measurements"] = {}
-        measurements_content = {
-                mr_id: {"measurement_mrid": mr_id, "value": value}
-            }
+        measurements_content = {mr_id: {"measurement_mrid": mr_id, "value": value}}
         cim_full_msg["message"]["measurements"].update(measurements_content)
-            
-        # Log the prepared message
-        # _log.debug(f"==== Publishing CIM measurement XXXX: {json.dumps(cim_full_msg)}")
 
     return cim_full_msg
 
@@ -314,8 +265,6 @@ def _construct_cim_full_msg(
 def run_master():
     # init master station(s)
     config_path = args.config_path
-    # _log.debug(f"{config_path = }")
-    # Note: in current design master_apps is a collection of master applications.
     # Make it global accessible to use in gridapps-d on_message callback workflow
     global master_apps
     master_apps = {}
@@ -334,15 +283,11 @@ def run_master():
 
     # subscribe to gridapps-d topic to receive control command
     topic = field_input_topic()
-    gapps.subscribe(
-        topic, on_message_control_outstation_binaryOutput
-    ) 
+    gapps.subscribe(topic, on_message_control_outstation_binaryOutput)
     # loop to poll data from outstation, construct a cim-message and send it
-    msg_count = 0
     while True:
         for outstation_name, master_app in master_apps.items():
             # Send scan request and process data
-            # time.sleep(100)  # TODO: clean this. 
             master_app.send_scan_all_request()
             db_data = master_app.soe_handler.db
             _log.debug(f"==== Polled from outstation. {db_data =}")
@@ -350,22 +295,17 @@ def run_master():
             cim_full_msg = _construct_cim_full_msg(db_data)
 
             # Sending the cim-message
-            topic = '/topic/goss.gridappsd.field.dnp3'
-            _log.info(f"==== Sending to {topic = }, {cim_full_msg = }")
-            gapps.send(
-                topic, json.dumps(cim_full_msg)
-            )
-        msg_count += 1
-        time.sleep(
-           30
-        )  # Wait for several seconds before the next cycle (to poll data from outstation)
+            topic = "/topic/goss.gridappsd.field.dnp3"
+            if cim_full_msg:
+                gapps.send(topic, json.dumps(cim_full_msg))
+                _log.info(f"==== Sent to {topic = }, {cim_full_msg = }")
+            else:
+                _log.info(f"==== Invalid {cim_full_msg = }")
+        time.sleep(30)  # Interval to poll data from outstation.
 
 
 if __name__ == "__main__":
-    # simulation_id = "field_data"  # TODO: Confirm what simulation_id is for. Change dummy simulation id to field id (if it is needed)
-    # gapps = GridAPPSD(stomp_address="10.15.223.157", stomp_port=61613)
     gapps = GridAPPSD(stomp_address="54.245.16.81", stomp_port=61616)
-    # gapps = GridAPPSD()
     gapps.connect()
 
     time.sleep(1)
