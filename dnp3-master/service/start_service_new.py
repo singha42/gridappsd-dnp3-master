@@ -103,30 +103,6 @@ class RTUConfig:
         :param file_path: Path to the JSON file containing the RTU configurations.
         :param rtu_key: Key of the RTU entry to be loaded from the JSON file.
         :return: An instance of RTUConfig initialized with data from the JSON file.
-
-        Example config file:
-        {
-            "RTU1": {
-                "name": "RTU1",
-                "conversion_type": "RTU1",
-                "CIM object": "l50",
-                "port": "30000",
-                "outstation_ip": "127.0.0.1",
-                "desc": "RTU1",
-                "link_local_addr": "2",
-                "link_remote_addr": "1"
-            },
-            "RTU2": {
-                "name": "RTU2",
-                "conversion_type": "RTU2",
-                "CIM object": "l50",
-                "port": "40000",
-                "outstation_ip": "127.0.0.1",
-                "desc": "RTU2",
-                "link_local_addr": "2",
-                "link_remote_addr": "1"
-            }
-        }
         """
         try:
             with open(file_path, "r") as file:
@@ -203,25 +179,6 @@ def _construct_cim_full_msg(
         cim_full_msg (dict, optional): Initial structure of the CIM message. Defaults to None.
     Returns:
         dict: A dictionary containing the CIM message structured with measurements.
-    Example message:
-    {
-    "simulation_id" : "12ae2345",
-        {
-    "message": {
-        "timestamp": "1742248985.983225",
-        "measurements": {
-            "1d88371e-3db5-4b23-b8cd-fc0f2f3569fb": {
-                "measurement_mrid": "1d88371e-3db5-4b23-b8cd-fc0f2f3569fb",
-                "value": False,
-            },
-            "a9eb2b35-c340-4d31-9a0a-4ff2d4463361": {
-                "measurement_mrid": "a9eb2b35-c340-4d31-9a0a-4ff2d4463361",
-                "value": True,
-                    },
-                },
-            }
-        }
-    }
     """
 
     if cim_full_msg is None:
