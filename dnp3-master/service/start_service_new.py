@@ -137,7 +137,8 @@ def on_message_control_outstation_binaryOutput(headers, message):
     _log.info(f"==== on_message triggered. {headers = }, {message = }")
     forward_differences = message["input"]["message"]["forward_differences"]
     with open(
-        os.path.join(config_path, "mrid_object_outstation_index_dict_receive.json")
+        # os.path.join(config_path, "mrid_object_outstation_index_dict_receive.json")
+        os.path.join(config_path, "mrid_receive_hardcoded.json")
     ) as f:
         register_to_db_index_receive = json.load(f)
     # Note: filtered index 100, 101
@@ -186,7 +187,8 @@ def _construct_cim_full_msg(
 
     # Load measurement definitions from a JSON file.
     with open(
-        os.path.join(config_path, "mrid_object_outstation_index_dict_send.json")
+        # os.path.join(config_path, "mrid_object_outstation_index_dict_send.json")
+        os.path.join(config_path, "mrid_send_hardcoded.json")
     ) as f:
         register_to_db_index_send = json.load(f)
     register_to_db_index_send_updated = {
