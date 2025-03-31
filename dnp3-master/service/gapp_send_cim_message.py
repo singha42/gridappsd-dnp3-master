@@ -36,24 +36,24 @@ def main():
           "difference_mrid": "ccbc9b44-c6b6-4b89-b876-f9472867a2ca",
           "reverse_differences": [
             {
-              "object": "5e6dfa84-705b-495a-8497-1c230541b636",
+              "object": "0e275a23-5fe0-416a-82b0-ba8f3fc829f5",
               "attribute": "FunctionBlock.enabled",
               "value": True
             },
             {
-              "object": "c3a4f467-fe35-4dce-b0b7-ab1f2f0a4c5d",
+              "object": "26a9dd1d-c9ae-433e-865d-5520b85cd525",
               "attribute": "FunctionBlock.enabled",
               "value": False
             }
           ],
           "forward_differences": [
             {
-              "object": "5e6dfa84-705b-495a-8497-1c230541b636",
+              "object": "0e275a23-5fe0-416a-82b0-ba8f3fc829f5",
               "attribute": "FunctionBlock.enabled",
               "value": relay_state
             },
             {
-              "object": "c3a4f467-fe35-4dce-b0b7-ab1f2f0a4c5d",
+              "object": "26a9dd1d-c9ae-433e-865d-5520b85cd525",
               "attribute": "FunctionBlock.enabled",
               "value": True
             }
